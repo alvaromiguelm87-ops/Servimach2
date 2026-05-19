@@ -1,0 +1,148 @@
+Cria uma aplicação web completa chamada Servimach, uma plataforma marketplace moderna de serviços locais, estilo Uber + Fiverr, focada em conectar clientes a profissionais verificados.
+Quero um produto real de startup, com arquitetura escalável, design premium e pronto para monetização.
+💡 VISÃO DO PRODUTO
+Servimach é uma plataforma onde:
+Clientes encontram profissionais perto deles
+Profissionais criam perfis e recebem pedidos
+A plataforma cobra comissão por cada serviço
+Objetivo: tornar-se um marketplace líder de serviços locais.
+🧱 STACK TECNOLÓGICO
+Usa:
+HTML5, CSS3, JavaScript moderno (ES6+)
+Firebase:
+Authentication
+Firestore Database
+Estrutura modular (arquivos separados por função)
+Código limpo, escalável e comentado
+🔐 SISTEMA DE AUTENTICAÇÃO
+Implementar:
+Registo de utilizador
+Login/logout seguro
+Perfis de utilizador
+Tipos de utilizadores:
+Cliente
+Profissional
+Campos de registo:
+nome
+email
+password
+tipo de conta
+foto
+profissão (se profissional)
+WhatsApp
+localização
+🏠 HOME (MARKETPLACE PRINCIPAL)
+A home deve parecer um produto real de startup:
+🔎 Funcionalidades:
+Barra de pesquisa inteligente (nome ou profissão)
+Filtro por categorias
+Listagem de profissionais em cards
+📂 Categorias:
+Eletricistas
+Canalizadores
+Mecânicos
+Pintores
+Limpeza
+Design
+Programação
+Outros
+👨‍🔧 CARDS DE PROFISSIONAIS:
+Cada card deve mostrar:
+foto de perfil
+nome
+profissão
+localização
+avaliação média ⭐
+botão “Ver perfil”
+📄 PERFIL DO PROFISSIONAL
+Página completa com:
+foto grande
+nome
+profissão
+descrição
+localização
+WhatsApp (botão direto)
+rating médio
+⭐ SISTEMA DE AVALIAÇÃO:
+estrelas de 1 a 5
+cálculo automático da média
+armazenado no Firebase
+📩 BOTÃO:
+“Pedir serviço”
+📩 SISTEMA DE PEDIDOS (CORE DA STARTUP)
+Clientes podem:
+escolher profissional
+escrever descrição do serviço
+definir preço
+Profissionais podem:
+aceitar pedido
+recusar pedido
+marcar como concluído
+STATUS:
+pending
+accepted
+completed
+💰 SISTEMA DE MONETIZAÇÃO (IMPORTANTE)
+Cada pedido deve ter:
+price (valor total)
+commission (10% da plataforma)
+professionalEarnings (90%)
+A plataforma deve automaticamente calcular:
+const commission = price * 0.10
+const professionalGets = price - commission
+💳 SISTEMA DE PAGAMENTO (PREPARADO PARA PRODUÇÃO)
+Criar estrutura pronta para integração futura com:
+Stripe
+PayPal
+ou pagamento por referência
+Campos:
+paymentStatus: pending / paid
+paymentMethod
+transactionId
+📊 PAINEL ADMIN (STARTUP REAL)
+Criar dashboard admin com:
+total de pedidos
+receita total da plataforma
+lista de utilizadores
+lista de profissionais
+lista de pedidos
+🔔 NOTIFICAÇÕES
+Notificar profissional quando receber pedido
+Notificar cliente quando pedido for aceito
+🎨 DESIGN UI/UX (MUITO IMPORTANTE)
+Quero design nível startup premium:
+estilo moderno tipo Uber / Airbnb / Fiverr
+dark mode elegante
+cards com sombras suaves
+animações leves (hover, transitions)
+layout totalmente responsivo (mobile-first)
+interface limpa e profissional
+🔎 EXTRAS OBRIGATÓRIOS
+filtros por categoria
+ordenação por rating
+sistema de pesquisa em tempo real
+páginas separadas:
+index.html (login)
+register.html
+home.html
+profile.html
+admin.html
+código modular:
+firebase.js
+auth.js
+home.js
+profile.js
+orders.js
+admin.js
+🚀 OBJETIVO FINAL
+Criar uma aplicação pronta para:
+lançamento real
+crescimento como startup
+monetização com comissão
+escalabilidade internacional
+🧠 IMPORTANTE
+Código limpo e organizado
+Sem erros
+Estrutura profissional
+Comentários explicativos
+Preparado para produção

@@ -1,22 +1,34 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Servimach API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser authentication endpoints
+  - name: users
+    description: User profile operations
+  - name: professionals
+    description: Professional profile operations
+  - name: orders
+    description: Service order operations
+  - name: reviews
+    description: Review and rating operations
+  - name: notifications
+    description: Notification operations
+  - name: admin
+    description: Admin dashboard operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +36,466 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to OIDC authorization endpoint
+
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to returnTo path on success
+
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to OIDC provider logout URL
+
+  /users/me:
+    get:
+      operationId: getMyProfile
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateMyProfile
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  /professionals:
+    get:
+      operationId: listProfessionals
+      tags: [professionals]
+      summary: List professionals with optional filters
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [rating, newest]
+      responses:
+        "200":
+          description: List of professionals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Professional"
+
+  /professionals/{id}:
+    get:
+      operationId: getProfessional
+      tags: [professionals]
+      summary: Get a professional profile by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Professional profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProfessional
+      tags: [professionals]
+      summary: Update professional profile (own profile only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalUpdate"
+      responses:
+        "200":
+          description: Updated professional
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /dashboard/professional:
+    get:
+      operationId: getProfessionalDashboard
+      tags: [professionals]
+      summary: Get professional dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfessionalDashboard"
+        "401":
+          description: Unauthorized
+
+  /dashboard/client:
+    get:
+      operationId: getClientDashboard
+      tags: [users]
+      summary: Get client dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientDashboard"
+        "401":
+          description: Unauthorized
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders for the current user (filtered by role)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, completed, rejected]
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new service order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status (accept/reject/complete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /reviews:
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Submit a review for a completed order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewInput"
+      responses:
+        "201":
+          description: Created review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "401":
+          description: Unauthorized
+
+  /reviews/professional/{id}:
+    get:
+      operationId: getProfessionalReviews
+      tags: [reviews]
+      summary: Get all reviews for a professional
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: Get notifications for current user
+      responses:
+        "200":
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          description: Unauthorized
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "401":
+          description: Unauthorized
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform-wide statistics
+      responses:
+        "200":
+          description: Platform statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/users:
+    get:
+      operationId: listAllUsers
+      tags: [admin]
+      summary: List all registered users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/orders:
+    get:
+      operationId: listAllOrders
+      tags: [admin]
+      summary: List all orders across the platform
+      responses:
+        "200":
+          description: List of all orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +505,310 @@ components:
       required:
         - status
 
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+
+    User:
+      type: object
+      required: [id, replId, name, email, role, createdAt]
+      properties:
+        id:
+          type: integer
+        replId:
+          type: string
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [client, professional, admin]
+        profilePhoto:
+          type: ["string", "null"]
+        whatsapp:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum: [client, professional]
+        whatsapp:
+          type: string
+        location:
+          type: string
+
+    Professional:
+      type: object
+      required: [id, userId, name, profession, category, location, rating, reviewCount, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        replId:
+          type: string
+        name:
+          type: string
+        profession:
+          type: string
+        category:
+          type: string
+        description:
+          type: ["string", "null"]
+        location:
+          type: string
+        profilePhoto:
+          type: ["string", "null"]
+        whatsapp:
+          type: ["string", "null"]
+        rating:
+          type: number
+          format: float
+        reviewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProfessionalUpdate:
+      type: object
+      properties:
+        profession:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        whatsapp:
+          type: string
+
+    ProfessionalDashboard:
+      type: object
+      required: [totalOrders, pendingOrders, completedOrders, totalEarnings, platformCommission, rating, recentOrders]
+      properties:
+        totalOrders:
+          type: integer
+        pendingOrders:
+          type: integer
+        completedOrders:
+          type: integer
+        totalEarnings:
+          type: number
+          format: float
+        platformCommission:
+          type: number
+          format: float
+        rating:
+          type: number
+          format: float
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+
+    ClientDashboard:
+      type: object
+      required: [totalOrders, activeOrders, completedOrders, totalSpent, recentOrders]
+      properties:
+        totalOrders:
+          type: integer
+        activeOrders:
+          type: integer
+        completedOrders:
+          type: integer
+        totalSpent:
+          type: number
+          format: float
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+
+    Order:
+      type: object
+      required: [id, clientId, professionalId, description, price, commission, professionalEarnings, status, paymentStatus, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        professionalId:
+          type: integer
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        commission:
+          type: number
+          format: float
+        professionalEarnings:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [pending, accepted, completed, rejected]
+        paymentStatus:
+          type: string
+          enum: [pending, paid]
+        paymentMethod:
+          type: ["string", "null"]
+        transactionId:
+          type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
+        professionalName:
+          type: ["string", "null"]
+        professionalProfession:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrderInput:
+      type: object
+      required: [professionalId, description, price]
+      properties:
+        professionalId:
+          type: integer
+        description:
+          type: string
+          minLength: 10
+        price:
+          type: number
+          format: float
+          minimum: 1
+
+    OrderStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, rejected, completed]
+        paymentStatus:
+          type: string
+          enum: [pending, paid]
+        paymentMethod:
+          type: string
+        transactionId:
+          type: string
+
+    Review:
+      type: object
+      required: [id, orderId, clientId, professionalId, rating, createdAt]
+      properties:
+        id:
+          type: integer
+        orderId:
+          type: integer
+        clientId:
+          type: integer
+        professionalId:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
+        clientPhoto:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ReviewInput:
+      type: object
+      required: [orderId, professionalId, rating]
+      properties:
+        orderId:
+          type: integer
+        professionalId:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+
+    Notification:
+      type: object
+      required: [id, userId, message, type, read, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        message:
+          type: string
+        type:
+          type: string
+          enum: [order_received, order_accepted, order_rejected, order_completed, review_received]
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminStats:
+      type: object
+      required: [totalUsers, totalProfessionals, totalClients, totalOrders, completedOrders, pendingOrders, totalRevenue, platformEarnings]
+      properties:
+        totalUsers:
+          type: integer
+        totalProfessionals:
+          type: integer
+        totalClients:
+          type: integer
+        totalOrders:
+          type: integer
+        completedOrders:
+          type: integer
+        pendingOrders:
+          type: integer
+        totalRevenue:
+          type: number
+          format: float
+        platformEarnings:
+          type: number
+          format: float
