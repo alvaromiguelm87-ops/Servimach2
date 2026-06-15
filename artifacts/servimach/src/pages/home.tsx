@@ -22,15 +22,16 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("");
   
-  const { data: professionals, isLoading } = useListProfessionals({
-    query: {
-      queryKey: ['/api/professionals', search, category],
-    }
-  }, {
+  const { data: professionals = [], isLoading } = useListProfessionals(
+  {
     request: {
-      // Provide an empty object or query params in url
-    }
-  });
+      query: {
+        search: search || undefined,
+        category: category || undefined,
+      },
+    },
+  }
+);
 
   return (
     <div className="space-y-12">
@@ -101,7 +102,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {professionals?.map(prof => (
+            {professionals.map((prof) => (
               <Link key={prof.id} href={`/professionals/${prof.id}`}>
                 <Card className="group cursor-pointer hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 overflow-hidden">
                   <CardContent className="p-0">
@@ -127,11 +128,13 @@ export default function Home() {
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center text-muted-foreground">
                           <MapPin className="size-4 mr-1 text-primary" />
-                          <span className="truncate max-w-[120px]">{prof.location}</span>
+                          <span className="truncate max-w-[120px]">
+  {prof.location || "Localização não definida"}
+</span>
                         </div>
                         <div className="flex items-center font-medium">
                           <Star className="size-4 mr-1 fill-primary text-primary" />
-                          {prof.rating.toFixed(1)} ({prof.reviewCount})
+                          {(prof.rating ?? 0).toFixed(1)} ({prof.reviewCount})
                         </div>
                       </div>
                     </div>
@@ -139,7 +142,7 @@ export default function Home() {
                 </Card>
               </Link>
             ))}
-            {professionals?.length === 0 && (
+            {professionals.length === 0 && (
               <div className="col-span-full py-12 text-center text-muted-foreground">
                 Nenhum profissional encontrado nesta categoria.
               </div>
