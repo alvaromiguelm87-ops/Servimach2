@@ -20,6 +20,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+
       <Route path="/">
         <Layout>
           <Switch>
@@ -40,15 +41,18 @@ function Router() {
 
 function App() {
   useEffect(() => {
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add("dark");
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
+        <WouterRouter
+          base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}
+        >
           <Router />
         </WouterRouter>
+
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
