@@ -38,9 +38,14 @@ async function getOrCreateProfile(
 
 export { getOrCreateProfile };
 
+/*
+ * PERFIL DO UTILIZADOR AUTENTICADO
+ */
 router.get("/users/me", async (req, res) => {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({
+      error: "Unauthorized",
+    });
   }
 
   const authUser = req.user!;
@@ -71,9 +76,14 @@ router.get("/users/me", async (req, res) => {
   });
 });
 
+/*
+ * ATUALIZAR PERFIL
+ */
 router.patch("/users/me", async (req, res) => {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({
+      error: "Unauthorized",
+    });
   }
 
   const authUser = req.user!;
@@ -86,17 +96,28 @@ router.patch("/users/me", async (req, res) => {
   const profile = await getOrCreateProfile(
     authUser.id,
     `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() ||
+      authRec?.email?.split("@")[0] ||
       "User",
     authRec?.email,
   );
 
-  const { name, role, whatsapp, location } = req.body;
+  const {
+    name,
+    role,
+    whatsapp,
+    location,
+    profession,
+    category,
+    description,
+  } = req.body;
 
   const updates: Record<string, unknown> = {
     updatedAt: new Date(),
   };
 
-  if (name !== undefined) updates.name = name;
+  if (name !== undefined) {
+    updates.name = name;
+  }
 
   if (
     role !== undefined &&
@@ -119,20 +140,54 @@ router.patch("/users/me", async (req, res) => {
     .where(eq(profilesTable.id, profile.id))
     .returning();
 
+  /*
+   * Se virar profissional,
+   * cria ou atualiza o perfil profissional.
+   */
   if (role === "professional") {
-    const existing = await db
+    const existingProfessional = await db
       .select()
       .from(professionalsTable)
       .where(
-        eq(professionalsTable.profileId, updated.id),
+        eq(
+          professionalsTable.profileId,
+          updated.id,
+        ),
       );
 
-    if (existing.length === 0) {
+    if (existingProfessional.length === 0) {
       await db.insert(professionalsTable).values({
         profileId: updated.id,
-        profession: "Profissional",
-        category: "Outros",
+        profession:
+          profession || "Profissional",
+        category: category || "Outros",
+        description:
+          description || "",
       });
+    } else {
+      await db
+        .update(professionalsTable)
+        .set({
+          profession:
+            profession ??
+            existingProfessional[0].profession,
+
+          category:
+            category ??
+            existingProfessional[0].category,
+
+          description:
+            description ??
+            existingProfessional[0].description,
+
+          updatedAt: new Date(),
+        })
+        .where(
+          eq(
+            professionalsTable.profileId,
+            updated.id,
+          ),
+        );
     }
   }
 
@@ -149,6 +204,9 @@ router.patch("/users/me", async (req, res) => {
   });
 });
 
+/*
+ * DASHBOARD DO CLIENTE
+ */
 router.get("/dashboard/client", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({
@@ -166,6 +224,7 @@ router.get("/dashboard/client", async (req, res) => {
   const profile = await getOrCreateProfile(
     authUser.id,
     `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() ||
+      authRec?.email?.split("@")[0] ||
       "User",
     authRec?.email,
   );
@@ -181,51 +240,71 @@ router.get("/dashboard/client", async (req, res) => {
     )
     .orderBy(desc(ordersTable.createdAt));
 
-  const total = allOrders.length;
+  const totalOrders = allOrders.length;
 
-  const active = allOrders.filter((o) =>
+  const activeOrders = allOrders.filter((o) =>
     ["pending", "accepted"].includes(
       o.status,
     ),
   ).length;
 
-  const completed = allOrders.filter(
+  const completedOrders = allOrders.filter(
     (o) => o.status === "completed",
   ).length;
 
   const totalSpent = allOrders
     .filter((o) => o.status === "completed")
     .reduce(
-      (sum, o) => sum + o.price,
+      (sum, order) => sum + order.price,
       0,
     );
 
   return res.json({
-    totalOrders: total,
-    activeOrders: active,
-    completedOrders: completed,
+    totalOrders,
+    activeOrders,
+    completedOrders,
     totalSpent,
 
     recentOrders: allOrders
       .slice(0, 5)
-      .map((o) => ({
-        id: o.id,
-        clientId: o.clientProfileId,
-        professionalId:
-          o.professionalProfileId,
-        description: o.description,
-        price: o.price,
-        commission: o.commission,
-        professionalEarnings:
-          o.professionalEarnings,
-        status: o.status,
-        paymentStatus: o.paymentStatus,
-        paymentMethod: o.paymentMethod,
-        transactionId: o.transactionId,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
+      .map((order) => ({
+        id: order.id,
+        clientId:
+          order.clientProfileId,
 
-        clientName: profile.name,
+        professionalId:
+          order.professionalProfileId,
+
+        description:
+          order.description,
+
+        price: order.price,
+
+        commission:
+          order.commission,
+
+        professionalEarnings:
+          order.professionalEarnings,
+
+        status: order.status,
+
+        paymentStatus:
+          order.paymentStatus,
+
+        paymentMethod:
+          order.paymentMethod,
+
+        transactionId:
+          order.transactionId,
+
+        createdAt:
+          order.createdAt,
+
+        updatedAt:
+          order.updatedAt,
+
+        clientName:
+          profile.name,
 
         professionalName:
           "Profissional",
