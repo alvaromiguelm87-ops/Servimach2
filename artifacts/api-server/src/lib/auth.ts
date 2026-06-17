@@ -5,9 +5,13 @@ import { db, sessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
-export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
+export const ISSUER_URL =
+  process.env.ISSUER_URL ?? "https://replit.com/oidc";
+
 export const SESSION_COOKIE = "sid";
-export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
+
+export const SESSION_TTL =
+  7 * 24 * 60 * 60 * 1000; // 7 dias
 
 export interface SessionData {
   user: AuthUser;
@@ -19,33 +23,54 @@ export interface SessionData {
 let oidcConfig: client.Configuration | null = null;
 
 export async function getOidcConfig(): Promise<client.Configuration> {
-  if (!oidcConfig) {
-    oidcConfig = await client.discovery(
-      new URL(ISSUER_URL),
-      process.env.REPL_ID!,
+  if (oidcConfig) {
+    return oidcConfig;
+  }
+
+  const replId = process.env.REPL_ID;
+
+  if (!replId) {
+    throw new Error(
+      "REPL_ID não foi definido nas variáveis de ambiente."
     );
   }
+
+  oidcConfig = await client.discovery(
+    new URL(ISSUER_URL),
+    replId
+  );
+
   return oidcConfig;
 }
 
-export async function createSession(data: SessionData): Promise<string> {
+export async function createSession(
+  data: SessionData
+): Promise<string> {
   const sid = crypto.randomBytes(32).toString("hex");
+
   await db.insert(sessionsTable).values({
     sid,
     sess: data as unknown as Record<string, unknown>,
     expire: new Date(Date.now() + SESSION_TTL),
   });
+
   return sid;
 }
 
-export async function getSession(sid: string): Promise<SessionData | null> {
+export async function getSession(
+  sid: string
+): Promise<SessionData | null> {
   const [row] = await db
     .select()
     .from(sessionsTable)
     .where(eq(sessionsTable.sid, sid));
 
-  if (!row || row.expire < new Date()) {
-    if (row) await deleteSession(sid);
+  if (!row) {
+    return null;
+  }
+
+  if (row.expire <= new Date()) {
+    await deleteSession(sid);
     return null;
   }
 
@@ -54,7 +79,7 @@ export async function getSession(sid: string): Promise<SessionData | null> {
 
 export async function updateSession(
   sid: string,
-  data: SessionData,
+  data: SessionData
 ): Promise<void> {
   await db
     .update(sessionsTable)
@@ -65,22 +90,41 @@ export async function updateSession(
     .where(eq(sessionsTable.sid, sid));
 }
 
-export async function deleteSession(sid: string): Promise<void> {
-  await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+export async function deleteSession(
+  sid: string
+): Promise<void> {
+  await db
+    .delete(sessionsTable)
+    .where(eq(sessionsTable.sid, sid));
 }
 
 export async function clearSession(
   res: Response,
-  sid?: string,
+  sid?: string
 ): Promise<void> {
-  if (sid) await deleteSession(sid);
-  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  if (sid) {
+    await deleteSession(sid);
+  }
+
+  res.clearCookie(SESSION_COOKIE, {
+    path: "/",
+  });
 }
 
-export function getSessionId(req: Request): string | undefined {
-  const authHeader = req.headers["authorization"];
-  if (authHeader?.startsWith("Bearer ")) {
+export function getSessionId(
+  req: Request
+): string | undefined {
+  const authHeader = req.headers.authorization;
+
+  if (
+    authHeader &&
+    authHeader.startsWith("Bearer ")
+  ) {
     return authHeader.slice(7);
   }
-  return req.cookies?.[SESSION_COOKIE];
+
+  return (
+    req.cookies?.[SESSION_COOKIE] ??
+    undefined
+  );
 }
