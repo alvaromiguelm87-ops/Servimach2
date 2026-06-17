@@ -8,19 +8,29 @@
 
 export interface Professional {
   id: number;
+
   userId: number;
+
   replId?: string;
+
   name: string;
+
   profession: string;
+
   category: string;
-  /** @nullable */
+
   description?: string | null;
+
   location: string;
-  /** @nullable */
+
   profilePhoto?: string | null;
-  /** @nullable */
+
   whatsapp?: string | null;
+
   rating: number;
+
   reviewCount: number;
-  createdAt: Date;
+
+  // Datas chegam da API como string ISO
+  createdAt: string;
 }
