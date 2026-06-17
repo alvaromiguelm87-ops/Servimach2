@@ -1,11 +1,20 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, profilesTable, professionalsTable, ordersTable } from "@workspace/db";
+import {
+  usersTable,
+  profilesTable,
+  professionalsTable,
+  ordersTable,
+} from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
-async function getOrCreateProfile(authId: string, name: string, email: string | null | undefined) {
+async function getOrCreateProfile(
+  authId: string,
+  name: string,
+  email: string | null | undefined,
+) {
   let [profile] = await db
     .select()
     .from(profilesTable)
@@ -14,7 +23,13 @@ async function getOrCreateProfile(authId: string, name: string, email: string | 
   if (!profile) {
     [profile] = await db
       .insert(profilesTable)
-      .values({ authId, name, role: "client" })
+      .values({
+        authId,
+        name,
+        role: "client",
+        whatsapp: "",
+        location: "",
+      })
       .returning();
   }
 
@@ -27,13 +42,20 @@ router.get("/users/me", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+
   const authUser = req.user!;
-  const [authRec] = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id));
+
+  const [authRec] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, authUser.id));
 
   const profile = await getOrCreateProfile(
     authUser.id,
-    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() || authRec?.email?.split("@")[0] || "User",
-    authRec?.email
+    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() ||
+      authRec?.email?.split("@")[0] ||
+      "User",
+    authRec?.email,
   );
 
   return res.json({
@@ -53,21 +75,43 @@ router.patch("/users/me", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+
   const authUser = req.user!;
-  const [authRec] = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id));
+
+  const [authRec] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, authUser.id));
 
   const profile = await getOrCreateProfile(
     authUser.id,
-    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() || "User",
-    authRec?.email
+    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() ||
+      "User",
+    authRec?.email,
   );
 
   const { name, role, whatsapp, location } = req.body;
-  const updates: Record<string, unknown> = {};
+
+  const updates: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+
   if (name !== undefined) updates.name = name;
-  if (role !== undefined && ["client", "professional"].includes(role)) updates.role = role;
-  if (whatsapp !== undefined) updates.whatsapp = whatsapp;
-  if (location !== undefined) updates.location = location;
+
+  if (
+    role !== undefined &&
+    ["client", "professional"].includes(role)
+  ) {
+    updates.role = role;
+  }
+
+  if (whatsapp !== undefined) {
+    updates.whatsapp = whatsapp;
+  }
+
+  if (location !== undefined) {
+    updates.location = location;
+  }
 
   const [updated] = await db
     .update(profilesTable)
@@ -79,7 +123,10 @@ router.patch("/users/me", async (req, res) => {
     const existing = await db
       .select()
       .from(professionalsTable)
-      .where(eq(professionalsTable.profileId, updated.id));
+      .where(
+        eq(professionalsTable.profileId, updated.id),
+      );
+
     if (existing.length === 0) {
       await db.insert(professionalsTable).values({
         profileId: updated.id,
@@ -103,52 +150,89 @@ router.patch("/users/me", async (req, res) => {
 });
 
 router.get("/dashboard/client", async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
+      error: "Unauthorized",
+    });
+  }
 
   const authUser = req.user!;
-  const [authRec] = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id));
+
+  const [authRec] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, authUser.id));
+
   const profile = await getOrCreateProfile(
     authUser.id,
-    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() || "User",
-    authRec?.email
+    `${authRec?.firstName ?? ""} ${authRec?.lastName ?? ""}`.trim() ||
+      "User",
+    authRec?.email,
   );
 
   const allOrders = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.clientProfileId, profile.id))
+    .where(
+      eq(
+        ordersTable.clientProfileId,
+        profile.id,
+      ),
+    )
     .orderBy(desc(ordersTable.createdAt));
 
   const total = allOrders.length;
-  const active = allOrders.filter((o) => ["pending", "accepted"].includes(o.status)).length;
-  const completed = allOrders.filter((o) => o.status === "completed").length;
+
+  const active = allOrders.filter((o) =>
+    ["pending", "accepted"].includes(
+      o.status,
+    ),
+  ).length;
+
+  const completed = allOrders.filter(
+    (o) => o.status === "completed",
+  ).length;
+
   const totalSpent = allOrders
     .filter((o) => o.status === "completed")
-    .reduce((sum, o) => sum + o.price, 0);
+    .reduce(
+      (sum, o) => sum + o.price,
+      0,
+    );
 
   return res.json({
     totalOrders: total,
     activeOrders: active,
     completedOrders: completed,
     totalSpent,
-    recentOrders: allOrders.slice(0, 5).map((o) => ({
-      id: o.id,
-      clientId: o.clientProfileId,
-      professionalId: o.professionalProfileId,
-      description: o.description,
-      price: o.price,
-      commission: o.commission,
-      professionalEarnings: o.professionalEarnings,
-      status: o.status,
-      paymentStatus: o.paymentStatus,
-      paymentMethod: o.paymentMethod,
-      transactionId: o.transactionId,
-      createdAt: o.createdAt,
-      updatedAt: o.updatedAt,
-      clientName: profile.name,
-      professionalName: null,
-      professionalProfession: null,
-    })),
+
+    recentOrders: allOrders
+      .slice(0, 5)
+      .map((o) => ({
+        id: o.id,
+        clientId: o.clientProfileId,
+        professionalId:
+          o.professionalProfileId,
+        description: o.description,
+        price: o.price,
+        commission: o.commission,
+        professionalEarnings:
+          o.professionalEarnings,
+        status: o.status,
+        paymentStatus: o.paymentStatus,
+        paymentMethod: o.paymentMethod,
+        transactionId: o.transactionId,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+
+        clientName: profile.name,
+
+        professionalName:
+          "Profissional",
+
+        professionalProfession:
+          "Serviço",
+      })),
   });
 });
 
